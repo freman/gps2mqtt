@@ -2,6 +2,7 @@ package gps2mqtt
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/BurntSushi/toml"
@@ -35,6 +36,8 @@ func LoadConfiguration(file string) (*Config, error) {
 			ClientName:  "gps2mqtt",
 			KeepAlive:   time.Minute,
 			PingTimeout: time.Second,
+			Username:    os.Getenv("MQTT_USERNAME"),
+			Password:    os.Getenv("MQTT_PASSWORD"),
 		},
 	}
 
