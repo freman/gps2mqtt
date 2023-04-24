@@ -27,9 +27,9 @@ type PacketUD struct {
 	Speed     float64   `json:"speed"`
 	Position  bool      `json:"position"`
 
-	Satelites int64   `json:"satelites"`
-	RSSI      float64 `json:"rssi"`
-	Battery   float64 `json:"battery"`
+	Satellites int64   `json:"satellites"`
+	RSSI       float64 `json:"rssi"`
+	Battery    float64 `json:"battery"`
 }
 
 func (p *Packet) MQTTID() string {

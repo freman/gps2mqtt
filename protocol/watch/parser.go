@@ -21,8 +21,7 @@ func (p *Parser) readString(delim byte) (out string, err error) {
 
 func (p *Parser) ReadPacket() (packet interface{}, err error) {
 	var char byte
-	char, err = p.reader.ReadByte()
-	if err != nil {
+	if char, err = p.reader.ReadByte(); err != nil {
 		return packet, err
 	}
 
@@ -49,6 +48,7 @@ func (p *Parser) ReadPacket() (packet interface{}, err error) {
 		}
 
 		np.ContentLength = binary.BigEndian.Uint16(hlen)
+
 		if np.Content, err = p.readString(']'); err != nil {
 			return
 		}
@@ -81,13 +81,13 @@ func (p Parser) MutatePacket(packet Packet) (interface{}, error) {
 			return nil, err
 		}
 
-		np.Position = content[3] == "A"
+		np.Position = strings.EqualFold(content[3], "A")
 
 		if np.Latitude, err = strconv.ParseFloat(content[4], 64); err != nil {
 			return nil, err
 		}
 
-		if content[5] == "S" {
+		if strings.EqualFold(content[5], "S") {
 			np.Latitude *= -1.0
 		}
 
@@ -95,7 +95,7 @@ func (p Parser) MutatePacket(packet Packet) (interface{}, error) {
 			return nil, err
 		}
 
-		if content[7] == "W" {
+		if strings.EqualFold(content[7], "W") {
 			np.Longitude *= -1.0
 		}
 
@@ -113,7 +113,7 @@ func (p Parser) MutatePacket(packet Packet) (interface{}, error) {
 			return nil, err
 		}
 
-		if np.Satelites, err = strconv.ParseInt(content[11], 10, 64); err != nil {
+		if np.Satellites, err = strconv.ParseInt(content[11], 10, 64); err != nil {
 			return nil, err
 		}
 

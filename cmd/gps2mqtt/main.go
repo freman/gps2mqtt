@@ -13,6 +13,8 @@ import (
 	"github.com/freman/gps2mqtt/homeassistant"
 	"github.com/freman/gps2mqtt/mqtt"
 	"github.com/freman/gps2mqtt/protocol"
+
+	_ "github.com/freman/gps2mqtt/protocol/h02"
 	_ "github.com/freman/gps2mqtt/protocol/watch"
 )
 

@@ -1,4 +1,4 @@
-package watch
+package h02
 
 import (
 	"bufio"
@@ -72,19 +72,23 @@ func (l *Listener) HandleConnection(c net.Conn, chMsg chan mqtt.Message, log zer
 			return
 		}
 
+		if packet == nil {
+			continue
+		}
+
 		if err := c.SetReadDeadline(time.Time{}); err != nil {
 			log.Error().Err(err).Msg("Failed to clear a read deadline.")
 			return
 		}
 
 		switch p := packet.(type) {
-		case *PacketLK:
+		case *PacketHQV1:
 			if !l.CheckWhitelist(p) {
 				c.Close()
 				return
 			}
 
-			if err := c.SetWriteDeadline(time.Now().Add(l.WriteTimeout)); err != nil {
+			if err = c.SetWriteDeadline(time.Now().Add(l.WriteTimeout)); err != nil {
 				log.Error().Err(err).Msg("Failed to set a write deadline.")
 				return
 			}
@@ -93,7 +97,7 @@ func (l *Listener) HandleConnection(c net.Conn, chMsg chan mqtt.Message, log zer
 				log.Error().Err(err).Msg("Failed to finish handshake.")
 			}
 
-			if err := c.SetWriteDeadline(time.Time{}); err != nil {
+			if err = c.SetWriteDeadline(time.Time{}); err != nil {
 				log.Error().Err(err).Msg("Failed to clear a write deadline.")
 				return
 			}
@@ -102,7 +106,7 @@ func (l *Listener) HandleConnection(c net.Conn, chMsg chan mqtt.Message, log zer
 				Data: p,
 				Type: mqtt.TypeHello,
 			}
-		case *PacketUD:
+		case *PacketB:
 			chMsg <- mqtt.Message{
 				Data: p,
 				Type: mqtt.TypeUpdate,
@@ -111,16 +115,16 @@ func (l *Listener) HandleConnection(c net.Conn, chMsg chan mqtt.Message, log zer
 	}
 }
 
-func (l *Listener) CheckWhitelist(p *PacketLK) bool {
+func (l *Listener) CheckWhitelist(p *PacketHQV1) bool {
 	return l.whitelist(p.Device())
 }
 
 func (l *Listener) Setup(config protocol.Configerer) error {
-	l.Listen = ":5093"
+	l.Listen = ":5013"
 	l.WriteTimeout = 30 * time.Second
 	l.ReadTimeout = 1 * time.Minute
 
-	if err := config.ProtocolConfiguration("watch", l); err != nil {
+	if err := config.ProtocolConfiguration("h02", l); err != nil {
 		return err
 	}
 
@@ -130,7 +134,7 @@ func (l *Listener) Setup(config protocol.Configerer) error {
 }
 
 func init() {
-	protocol.Register("watch", func(logger zerolog.Logger) protocol.Interface {
+	protocol.Register("h02", func(logger zerolog.Logger) protocol.Interface {
 		return &Listener{
 			log: logger,
 		}

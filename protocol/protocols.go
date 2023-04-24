@@ -26,5 +26,6 @@ func Get(name string) Interface {
 	if ifacef, ok := interfaces[name]; ok {
 		return ifacef(log.With().Str("protocol", name).Logger())
 	}
+
 	return nil
 }
