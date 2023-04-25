@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -27,9 +28,17 @@ func (p *Parser) ReadPacket() (packet interface{}, err error) {
 
 	switch char {
 	case '*':
-		return p.readAsciiPacket()
+		np, err := p.readAsciiPacket()
+		if err != nil {
+			return nil, fmt.Errorf("ascii error: %w", err)
+		}
+		return np, nil
 	case '$':
-		return p.readBinaryPacket()
+		np, err := p.readBinaryPacket()
+		if err != nil {
+			return nil, fmt.Errorf("binary error: %w", err)
+		}
+		return np, nil
 	}
 
 	return nil, errors.New("bad packet")
@@ -55,8 +64,9 @@ func (p *Parser) readAsciiPacket() (packet interface{}, err error) {
 			},
 		}
 
-		if np.Timestamp, err = time.Parse("020106150405", data[11]+data[3]); err != nil {
-			return nil, err
+		ts := data[11] + data[3]
+		if np.Timestamp, err = time.Parse("020106150405", ts); err != nil {
+			return nil, fmt.Errorf("%w (%s != 020106150405)", err, ts)
 		}
 
 		if np.Latitude, err = strLatitude(data[5], strings.EqualFold(data[6], "S")); err != nil {
@@ -116,8 +126,9 @@ func (p *Parser) readBinaryPacket() (packet interface{}, err error) {
 		},
 	}
 
-	if np.Timestamp, err = time.Parse("150405060102", hex.EncodeToString(data[5:11])); err != nil {
-		return nil, err
+	ts := hex.EncodeToString(data[5:11])
+	if np.Timestamp, err = time.Parse("150405060102", ts); err != nil {
+		return nil, fmt.Errorf("%w (%s != 150405060102)", err, ts)
 	}
 
 	west := data[20]&8 == 8
