@@ -80,7 +80,9 @@ func (l *Listener) HandleConnection(c net.Conn, chMsg chan mqtt.Message, log zer
 		switch p := packet.(type) {
 		case *PacketLK:
 			if !l.CheckWhitelist(p) {
+				log.Warn().Str("device", p.Device()).Msg("Rejecting unknown device.")
 				c.Close()
+
 				return
 			}
 
