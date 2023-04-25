@@ -70,29 +70,29 @@ func (p *Parser) readAsciiPacket() (packet interface{}, err error) {
 		}
 
 		if np.Latitude, err = strLatitude(data[5], strings.EqualFold(data[6], "S")); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to parse latitude (%s): %w", data[6], err)
 		}
 
 		if np.Longitude, err = strLongitude(data[7], strings.EqualFold(data[8], "W")); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to parse longitude (%s): %w", data[8], err)
 		}
 
 		if np.Speed, err = strconv.ParseFloat(data[9], 64); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to parse speed (%s): %w", data[9], err)
 		}
 
 		np.Speed *= 1.852 // Convert from knots to km/hr
 
 		if data[10] != "" { // Null is 0 apparently
-			if np.Heading, err = strconv.ParseFloat(strings.TrimLeft(data[10], "0"), 64); err != nil {
-				return nil, err
+			if np.Heading, err = strconv.ParseFloat(data[10], 64); err != nil {
+				return nil, fmt.Errorf("failed to parse heading (%s): %w", data[10], err)
 			}
 		}
 
 		if data[17] != "" {
 			tmpi, err := strconv.Atoi(data[17])
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("failed to parse battery (%s): %w", data[17], err)
 			}
 
 			np.Battery = batteryConversion(tmpi)
@@ -103,7 +103,7 @@ func (p *Parser) readAsciiPacket() (packet interface{}, err error) {
 		return nil, nil
 	}
 
-	return nil, errors.New("bad packet")
+	return nil, errors.New("bad packet (" + data[0] + ":" + data[2] + ")")
 }
 
 func (p *Parser) readBinaryPacket() (packet interface{}, err error) {
@@ -136,22 +136,22 @@ func (p *Parser) readBinaryPacket() (packet interface{}, err error) {
 	hexLongitude := hex.EncodeToString(data[16:21])
 
 	if np.Longitude, err = strLongitude(hexLongitude[0:5]+"."+hexLongitude[5:9], south); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse longitude (%s): %w", hexLongitude[0:5]+"."+hexLongitude[5:9], err)
 	}
 
 	if np.Latitude, err = strLatitude(hex.EncodeToString(data[11:13])+"."+hex.EncodeToString(data[13:15]), west); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse latitude (%s): %w", hex.EncodeToString(data[11:13])+"."+hex.EncodeToString(data[13:15]), err)
 	}
 
 	hexSpeedDir := hex.EncodeToString(data[21:24])
 	if np.Speed, err = strconv.ParseFloat(hexSpeedDir[0:3], 64); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse speed (%s): %w", hexSpeedDir[0:3], err)
 	}
 
 	np.Speed *= 1.852 // Convert from knots to km/hr
 
-	if np.Heading, err = strconv.ParseFloat(strings.TrimLeft(hexSpeedDir[3:6], "0"), 64); err != nil {
-		return nil, err
+	if np.Heading, err = strconv.ParseFloat(hexSpeedDir[3:6], 64); err != nil {
+		return nil, fmt.Errorf("failed to parse heading (%s): %w", hexSpeedDir[3:6], err)
 	}
 
 	return np, nil
@@ -169,17 +169,17 @@ func strLatitude(pos string, south bool) (float64, error) {
 // Decimal Degrees, x is 2 for Latitude or 3 for Longitude.
 func strDDMtoDD(x int, pos string, dir bool) (float64, error) {
 	if len(pos) < x+1 {
-		return 0, errors.New("invalid data")
+		return 0, errors.New("invalid ddm data")
 	}
 
 	d, err := strconv.ParseInt(pos[0:x], 10, 64)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to parse degrees (%s): %w", pos[0:x], err)
 	}
 
 	dm, err := strconv.ParseFloat(pos[x:], 64)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to parse decimal minutes (%s): %w", pos[x:], err)
 	}
 
 	dd := ddmtodd(float64(d), dm)

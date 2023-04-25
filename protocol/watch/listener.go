@@ -117,8 +117,8 @@ func (l *Listener) CheckWhitelist(p *PacketLK) bool {
 
 func (l *Listener) Setup(config protocol.Configerer) error {
 	l.Listen = ":5093"
-	l.WriteTimeout = 30 * time.Second
-	l.ReadTimeout = 1 * time.Minute
+	l.WriteTimeout = time.Second
+	l.ReadTimeout = time.Minute
 
 	if err := config.ProtocolConfiguration("watch", l); err != nil {
 		return err
