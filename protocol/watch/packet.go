@@ -11,14 +11,7 @@ type Packet struct {
 	DeviceID      string `json:"device_id"`
 	ContentLength uint16 `json:"content_length"`
 	Content       string `json:"content,omitempty"`
-}
 
-type PacketLK struct {
-	*Packet
-}
-
-type PacketUD struct {
-	*Packet
 	Timestamp time.Time `json:"timestamp"`
 	Latitude  float64   `json:"latitude"`
 	Longitude float64   `json:"longitude"`
@@ -30,6 +23,8 @@ type PacketUD struct {
 	Satellites int64   `json:"satellites"`
 	RSSI       float64 `json:"rssi"`
 	Battery    float64 `json:"battery"`
+
+	packetType string
 }
 
 func (p *Packet) MQTTID() string {
@@ -40,7 +35,15 @@ func (p *Packet) Device() string {
 	return fmt.Sprintf("%s*%s", p.Company, p.DeviceID)
 }
 
-func (p *PacketLK) Respond(writer io.Writer) error {
-	_, err := fmt.Fprintf(writer, `[%s*%s*0002*LK]`, p.Company, p.DeviceID)
+func (p *Packet) Respond(writer io.Writer) error {
+	_, err := fmt.Fprintf(writer, `[%s*%s*0002*%s]`, p.Company, p.DeviceID, p.packetType)
 	return err
+}
+
+func (p *Packet) WantResponse() bool {
+	return p.packetType == "LK"
+}
+
+func (p *Packet) Valid() bool {
+	return p.packetType != "LK"
 }

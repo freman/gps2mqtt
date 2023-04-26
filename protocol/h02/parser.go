@@ -8,10 +8,25 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/rs/zerolog"
 )
 
 type Parser struct {
 	reader *bufio.Reader
+	log    zerolog.Logger
+}
+
+type errUnsupportedPacket struct {
+	packetType string
+}
+
+func (e errUnsupportedPacket) Is(err error) bool {
+	_, isa := err.(*errUnsupportedPacket)
+	return isa
+}
+func (e errUnsupportedPacket) Error() string {
+	return fmt.Sprintf("unable to parse %q is an unsupported packet type", e.packetType)
 }
 
 func (p *Parser) readString(delim byte) (out string, err error) {
@@ -19,7 +34,7 @@ func (p *Parser) readString(delim byte) (out string, err error) {
 	return strings.TrimSuffix(out, string([]byte{delim})), err
 }
 
-func (p *Parser) ReadPacket() (packet interface{}, err error) {
+func (p *Parser) ReadPacket() (packet *Packet, err error) {
 	var char byte
 
 	if char, err = p.reader.ReadByte(); err != nil {
@@ -28,26 +43,25 @@ func (p *Parser) ReadPacket() (packet interface{}, err error) {
 
 	switch char {
 	case '*':
-		np, err := p.readAsciiPacket()
+		packet, err := p.readAsciiPacket()
 		if err != nil {
 			return nil, fmt.Errorf("ascii error: %w", err)
 		}
-		return np, nil
+
+		return packet, nil
 	case '$':
-		np, err := p.readBinaryPacket()
+		packet, err := p.readBinaryPacket()
 		if err != nil {
 			return nil, fmt.Errorf("binary error: %w", err)
 		}
-		return np, nil
+
+		return packet, nil
 	}
 
 	return nil, errors.New("bad packet")
 }
 
-// HQ,2204000054,V1,112752,A,2703.9008,S,15255.7160,E,000.00,027,220423,FFFFFBFF,mcc,mnc,ff64,0,6#
-// 0, 1         ,2 ,3     ,4,5        ,6,7         ,8,9     ,10 ,11    ,12      ,13 ,14 ,15, 16,17
-
-func (p *Parser) readAsciiPacket() (packet interface{}, err error) {
+func (p *Parser) readAsciiPacket() (packet *Packet, err error) {
 	var str string
 
 	if str, err = p.readString('#'); err != nil {
@@ -57,34 +71,34 @@ func (p *Parser) readAsciiPacket() (packet interface{}, err error) {
 	data := strings.Split(str, ",")
 	switch data[0] + ":" + data[2] {
 	case "HQ:V1": // Location
-		np := PacketHQV1{
-			&Packet{
-				DeviceID: data[1],
-				Position: strings.EqualFold(data[4], "A"),
-			},
+		packet = &Packet{
+			packetType: "HQ:V1",
+
+			DeviceID: data[1],
+			Position: strings.EqualFold(data[4], "A"),
 		}
 
 		ts := data[11] + data[3]
-		if np.Timestamp, err = time.Parse("020106150405", ts); err != nil {
+		if packet.Timestamp, err = time.Parse("020106150405", ts); err != nil {
 			return nil, fmt.Errorf("%w (%s != 020106150405)", err, ts)
 		}
 
-		if np.Latitude, err = strLatitude(data[5], strings.EqualFold(data[6], "S")); err != nil {
+		if packet.Latitude, err = strLatitude(data[5], strings.EqualFold(data[6], "S")); err != nil {
 			return nil, fmt.Errorf("failed to parse latitude (%s): %w", data[6], err)
 		}
 
-		if np.Longitude, err = strLongitude(data[7], strings.EqualFold(data[8], "W")); err != nil {
+		if packet.Longitude, err = strLongitude(data[7], strings.EqualFold(data[8], "W")); err != nil {
 			return nil, fmt.Errorf("failed to parse longitude (%s): %w", data[8], err)
 		}
 
-		if np.Speed, err = strconv.ParseFloat(data[9], 64); err != nil {
+		if packet.Speed, err = strconv.ParseFloat(data[9], 64); err != nil {
 			return nil, fmt.Errorf("failed to parse speed (%s): %w", data[9], err)
 		}
 
-		np.Speed *= 1.852 // Convert from knots to km/hr
+		packet.Speed *= 1.852 // Convert from knots to km/hr
 
 		if data[10] != "" { // Null is 0 apparently
-			if np.Heading, err = strconv.ParseFloat(data[10], 64); err != nil {
+			if packet.Heading, err = strconv.ParseFloat(data[10], 64); err != nil {
 				return nil, fmt.Errorf("failed to parse heading (%s): %w", data[10], err)
 			}
 		}
@@ -95,18 +109,18 @@ func (p *Parser) readAsciiPacket() (packet interface{}, err error) {
 				return nil, fmt.Errorf("failed to parse battery (%s): %w", data[17], err)
 			}
 
-			np.Battery = batteryConversion(tmpi)
+			packet.Battery = batteryConversion(tmpi)
 		}
 
-		return np, nil
+		return packet, nil
 	case "HQ:V19": // Sim data
-		return nil, nil
+		return nil, &errUnsupportedPacket{"HQ:V19"}
 	}
 
 	return nil, errors.New("bad packet (" + data[0] + ":" + data[2] + ")")
 }
 
-func (p *Parser) readBinaryPacket() (packet interface{}, err error) {
+func (p *Parser) readBinaryPacket() (packet *Packet, err error) {
 	data := make([]byte, 50)
 
 	c, err := p.reader.Read(data)
@@ -118,16 +132,15 @@ func (p *Parser) readBinaryPacket() (packet interface{}, err error) {
 		return nil, errors.New("not enough data")
 	}
 
-	np := PacketB{
-		&Packet{
-			DeviceID: hex.EncodeToString(data[0:5]),
-			Battery:  batteryConversion(int(data[15])),
-			Position: data[20]&2 == 2,
-		},
+	packet = &Packet{
+		packetType: "$",
+		DeviceID:   hex.EncodeToString(data[0:5]),
+		Battery:    batteryConversion(int(data[15])),
+		Position:   data[20]&2 == 2,
 	}
 
 	ts := hex.EncodeToString(data[5:11])
-	if np.Timestamp, err = time.Parse("150405060102", ts); err != nil {
+	if packet.Timestamp, err = time.Parse("150405060102", ts); err != nil {
 		return nil, fmt.Errorf("%w (%s != 150405060102)", err, ts)
 	}
 
@@ -135,26 +148,26 @@ func (p *Parser) readBinaryPacket() (packet interface{}, err error) {
 	south := data[20]&4 == 4
 	hexLongitude := hex.EncodeToString(data[16:21])
 
-	if np.Longitude, err = strLongitude(hexLongitude[0:5]+"."+hexLongitude[5:9], south); err != nil {
+	if packet.Longitude, err = strLongitude(hexLongitude[0:5]+"."+hexLongitude[5:9], south); err != nil {
 		return nil, fmt.Errorf("failed to parse longitude (%s): %w", hexLongitude[0:5]+"."+hexLongitude[5:9], err)
 	}
 
-	if np.Latitude, err = strLatitude(hex.EncodeToString(data[11:13])+"."+hex.EncodeToString(data[13:15]), west); err != nil {
+	if packet.Latitude, err = strLatitude(hex.EncodeToString(data[11:13])+"."+hex.EncodeToString(data[13:15]), west); err != nil {
 		return nil, fmt.Errorf("failed to parse latitude (%s): %w", hex.EncodeToString(data[11:13])+"."+hex.EncodeToString(data[13:15]), err)
 	}
 
 	hexSpeedDir := hex.EncodeToString(data[21:24])
-	if np.Speed, err = strconv.ParseFloat(hexSpeedDir[0:3], 64); err != nil {
+	if packet.Speed, err = strconv.ParseFloat(hexSpeedDir[0:3], 64); err != nil {
 		return nil, fmt.Errorf("failed to parse speed (%s): %w", hexSpeedDir[0:3], err)
 	}
 
-	np.Speed *= 1.852 // Convert from knots to km/hr
+	packet.Speed *= 1.852 // Convert from knots to km/hr
 
-	if np.Heading, err = strconv.ParseFloat(hexSpeedDir[3:6], 64); err != nil {
+	if packet.Heading, err = strconv.ParseFloat(hexSpeedDir[3:6], 64); err != nil {
 		return nil, fmt.Errorf("failed to parse heading (%s): %w", hexSpeedDir[3:6], err)
 	}
 
-	return np, nil
+	return packet, nil
 }
 
 func strLongitude(pos string, east bool) (float64, error) {

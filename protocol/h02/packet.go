@@ -15,14 +15,8 @@ type Packet struct {
 	Speed     float64   `json:"speed"`
 	Position  bool      `json:"position"`
 	Battery   float64   `json:"battery"`
-}
 
-type PacketHQV1 struct {
-	*Packet
-}
-
-type PacketB struct {
-	*Packet
+	packetType string
 }
 
 func (p *Packet) MQTTID() string {
@@ -33,7 +27,15 @@ func (p *Packet) Device() string {
 	return p.DeviceID
 }
 
-func (p *PacketHQV1) Respond(writer io.Writer) error {
+func (p *Packet) Respond(writer io.Writer) error {
 	_, err := fmt.Fprintf(writer, `*HQ,%s,V4,V1,%s#`, p.DeviceID, time.Now().Format(`20060102150405`))
 	return err
+}
+
+func (p *Packet) WantsResponse() bool {
+	return p.packetType == "HQ:V1"
+}
+
+func (p *Packet) Valid() bool {
+	return true
 }

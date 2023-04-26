@@ -22,7 +22,7 @@ type Listener struct {
 	ReadTimeout  time.Duration
 }
 
-func (l *Listener) Run(chMsg chan mqtt.Message) error {
+func (l *Listener) Run(chMsg chan mqtt.Identifier) error {
 	l.log.Info().Str("cfg", l.Listen).Msg("Starting listener.")
 
 	nl, err := net.Listen("tcp", l.Listen)
@@ -44,7 +44,7 @@ func (l *Listener) Run(chMsg chan mqtt.Message) error {
 	}
 }
 
-func (l *Listener) HandleConnection(c net.Conn, chMsg chan mqtt.Message, log zerolog.Logger) {
+func (l *Listener) HandleConnection(c net.Conn, chMsg chan mqtt.Identifier, log zerolog.Logger) {
 	defer func() {
 		if err := c.Close(); err != nil {
 			log.Error().Err(err).Msg("Error while closing client connection.")
@@ -67,12 +67,18 @@ func (l *Listener) HandleConnection(c net.Conn, chMsg chan mqtt.Message, log zer
 				return
 			}
 
+			if errors.Is(err, &errUnsupportedPacket{}) {
+				log.Debug().Err(err).Msg("Skipping unsupported packet")
+				continue
+			}
+
 			log.Error().Err(err).Msg("Failed to read packet.")
 
 			return
 		}
 
 		if packet == nil {
+			log.Warn().Msg("Unable to parse packet, but no error returned.")
 			continue
 		}
 
@@ -81,21 +87,20 @@ func (l *Listener) HandleConnection(c net.Conn, chMsg chan mqtt.Message, log zer
 			return
 		}
 
-		switch p := packet.(type) {
-		case *PacketHQV1:
-			if !l.CheckWhitelist(p) {
-				log.Warn().Str("device", p.Device()).Msg("Rejecting unknown device.")
-				c.Close()
+		if !l.CheckWhitelist(packet) {
+			log.Warn().Str("device", packet.Device()).Msg("Rejecting unknown device.")
+			c.Close()
 
-				return
-			}
+			return
+		}
 
+		if packet.WantsResponse() {
 			if err = c.SetWriteDeadline(time.Now().Add(l.WriteTimeout)); err != nil {
 				log.Error().Err(err).Msg("Failed to set a write deadline.")
 				return
 			}
 
-			if err := p.Respond(c); err != nil {
+			if err := packet.Respond(c); err != nil {
 				log.Error().Err(err).Msg("Failed to finish handshake.")
 			}
 
@@ -103,21 +108,13 @@ func (l *Listener) HandleConnection(c net.Conn, chMsg chan mqtt.Message, log zer
 				log.Error().Err(err).Msg("Failed to clear a write deadline.")
 				return
 			}
-
-			chMsg <- mqtt.Message{
-				Data: p,
-				Type: mqtt.TypeHello,
-			}
-		case *PacketB:
-			chMsg <- mqtt.Message{
-				Data: p,
-				Type: mqtt.TypeUpdate,
-			}
 		}
+
+		chMsg <- packet
 	}
 }
 
-func (l *Listener) CheckWhitelist(p *PacketHQV1) bool {
+func (l *Listener) CheckWhitelist(p *Packet) bool {
 	return l.whitelist(p.Device())
 }
 

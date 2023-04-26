@@ -33,7 +33,7 @@ func main() {
 		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 	}
 
-	chMessage := make(chan mqtt.Message, 10)
+	chMessage := make(chan mqtt.Identifier, 10)
 
 	opts := paho.NewClientOptions().
 		SetClientID(cfg.MQTT.ClientName).
@@ -71,13 +71,16 @@ func main() {
 
 	c.Publish("gps2mqtt/availability", 0, false, "online") // TODO error check
 
-	for msg := range chMessage {
-		mqttid := msg.Data.MQTTID()
-		topicPrefix := "gps2mqtt/device/" + mqttid
-		deviceID := msg.Data.Device()
+	seen := make(map[string]struct{})
 
-		switch msg.Type {
-		case mqtt.TypeHello:
+	for msg := range chMessage {
+		mqttID := msg.MQTTID()
+		topicPrefix := "gps2mqtt/device/" + mqttID
+		deviceID := msg.Device()
+
+		if _, has := seen[deviceID]; !has {
+			seen[deviceID] = struct{}{}
+
 			meta, has := cfg.Meta[deviceID]
 			if has && meta.Name != "" {
 				hc := homeassistant.AutoConfiguration{
@@ -94,15 +97,22 @@ func main() {
 					log.Fatal().Err(err).Msg("Failed to marshal configuration message.")
 				}
 
-				c.Publish("homeassistant/device_tracker/"+mqttid+"/config", 0, false, b) // TODO error check
+				topic := "homeassistant/device_tracker/" + mqttID + "/config"
+				log.Trace().Str("topic", topic).RawJSON("message", b).Msg("Publishing config to MQTT")
+
+				c.Publish(topic, 0, true, b) // TODO error check
 			}
-		case mqtt.TypeUpdate:
-			b, err := json.Marshal(msg.Data)
+		}
+
+		if msg.Valid() {
+			b, err := json.Marshal(msg)
 			if err != nil {
 				log.Fatal().Err(err).Msg("Failed to marshal update message.")
 			}
 
-			c.Publish(topicPrefix+"/attributes", 0, false, b) // TODO error check
+			topic := topicPrefix + "/attributes"
+			log.Trace().Str("topic", topic).RawJSON("message", b).Msg("Publishing location to MQTT")
+			c.Publish(topic, 0, false, b) // TODO error check
 		}
 	}
 }

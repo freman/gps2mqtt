@@ -13,7 +13,7 @@ type Configerer interface {
 
 type Interface interface {
 	Setup(config Configerer) error
-	Run(chan mqtt.Message) error
+	Run(chan mqtt.Identifier) error
 }
 
 var interfaces = map[string]func(zerolog.Logger) Interface{}
