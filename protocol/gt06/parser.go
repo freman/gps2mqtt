@@ -98,6 +98,7 @@ func (p *Parser) parsePacket(packet *Packet, msg []byte) (*Packet, error) {
 	switch packet.protocol {
 	case protoLogin:
 		p.id = msg
+		packet.DeviceID = msg
 		return packet, nil
 	case protoStatus:
 		// TODO: care about status?
