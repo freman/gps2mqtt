@@ -14,6 +14,7 @@ import (
 	"github.com/freman/gps2mqtt/mqtt"
 	"github.com/freman/gps2mqtt/protocol"
 
+	_ "github.com/freman/gps2mqtt/protocol/gt06"
 	_ "github.com/freman/gps2mqtt/protocol/h02"
 	_ "github.com/freman/gps2mqtt/protocol/watch"
 )
@@ -90,6 +91,7 @@ func main() {
 					AvailabilityTopic:   "gps2mqtt/availability",
 					JSONAttributesTopic: topicPrefix + "/attributes",
 					SourceType:          "gps",
+					UniqueID:            "gps2mqtt_" + deviceID,
 				}
 
 				b, err := json.Marshal(hc)

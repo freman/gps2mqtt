@@ -1,4 +1,4 @@
-package watch
+package gt06
 
 import (
 	"bufio"
@@ -74,6 +74,11 @@ func (l *Listener) HandleConnection(c net.Conn, chMsg chan mqtt.Identifier, log 
 			return
 		}
 
+		if packet == nil {
+			log.Warn().Msg("Unable to parse packet, but no error returned.")
+			continue
+		}
+
 		if err := c.SetReadDeadline(time.Time{}); err != nil {
 			log.Error().Err(err).Msg("Failed to clear a read deadline.")
 			return
@@ -86,8 +91,8 @@ func (l *Listener) HandleConnection(c net.Conn, chMsg chan mqtt.Identifier, log 
 			return
 		}
 
-		if packet.WantResponse() {
-			if err := c.SetWriteDeadline(time.Now().Add(l.WriteTimeout)); err != nil {
+		if packet.WantsResponse() {
+			if err = c.SetWriteDeadline(time.Now().Add(l.WriteTimeout)); err != nil {
 				log.Error().Err(err).Msg("Failed to set a write deadline.")
 				return
 			}
@@ -96,13 +101,15 @@ func (l *Listener) HandleConnection(c net.Conn, chMsg chan mqtt.Identifier, log 
 				log.Error().Err(err).Msg("Failed to finish handshake.")
 			}
 
-			if err := c.SetWriteDeadline(time.Time{}); err != nil {
+			if err = c.SetWriteDeadline(time.Time{}); err != nil {
 				log.Error().Err(err).Msg("Failed to clear a write deadline.")
 				return
 			}
 		}
 
-		chMsg <- packet
+		if packet.Valid() {
+			chMsg <- packet
+		}
 	}
 }
 
@@ -111,11 +118,11 @@ func (l *Listener) CheckWhitelist(p *Packet) bool {
 }
 
 func (l *Listener) Setup(config protocol.Configerer) error {
-	l.Listen = ":5093"
-	l.WriteTimeout = time.Second
+	l.Listen = ":5023"
+	l.WriteTimeout = time.Minute
 	l.ReadTimeout = time.Minute
 
-	if err := config.ProtocolConfiguration("watch", l); err != nil {
+	if err := config.ProtocolConfiguration("gt06", l); err != nil {
 		return err
 	}
 
@@ -125,7 +132,7 @@ func (l *Listener) Setup(config protocol.Configerer) error {
 }
 
 func init() {
-	protocol.Register("watch", func(logger zerolog.Logger) protocol.Interface {
+	protocol.Register("gt06", func(logger zerolog.Logger) protocol.Interface {
 		return &Listener{
 			log: logger,
 		}

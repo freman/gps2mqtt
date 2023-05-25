@@ -77,7 +77,6 @@ func (p *Parser) readAsciiPacket() (packet *Packet, err error) {
 			DeviceID: data[1],
 			Position: strings.EqualFold(data[4], "A"),
 		}
-
 		ts := data[11] + data[3]
 		if packet.Timestamp, err = time.Parse("020106150405", ts); err != nil {
 			return nil, fmt.Errorf("%w (%s != 020106150405)", err, ts)
@@ -209,19 +208,24 @@ func ddmtodd(d, dm float64) float64 {
 }
 
 func batteryConversion(in int) float64 {
-	switch in {
-	case 1:
-		return 10
-	case 2:
-		return 20
-	case 3:
-		return 40
-	case 4:
-		return 60
-	case 5:
-		return 80
-	case 6:
-		return 100
+	if in == 0 {
+		return 0
+	}
+
+	if in <= 3 {
+		return float64((in - 1) * 10)
+	}
+
+	if in <= 6 {
+		return float64((in - 1) * 20)
+	}
+
+	if in <= 100 {
+		return float64(in)
+	}
+
+	if in >= 0xF1 && in <= 0xF6 {
+		return float64(in - 0xF0)
 	}
 
 	return 0

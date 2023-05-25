@@ -46,6 +46,8 @@ func (l *Listener) Run(chMsg chan mqtt.Identifier) error {
 
 func (l *Listener) HandleConnection(c net.Conn, chMsg chan mqtt.Identifier, log zerolog.Logger) {
 	defer func() {
+		log.Info().Msg("Client disconnected.")
+
 		if err := c.Close(); err != nil {
 			log.Error().Err(err).Msg("Error while closing client connection.")
 		}

@@ -7,4 +7,5 @@ type AutoConfiguration struct {
 	JSONAttributesTopic string `json:"json_attributes_topic"`
 	Icon                string `json:"icon,omitempty"`
 	SourceType          string `json:"source_type"`
+	UniqueID            string `json:"unique_id"`
 }

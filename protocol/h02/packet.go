@@ -28,7 +28,7 @@ func (p *Packet) Device() string {
 }
 
 func (p *Packet) Respond(writer io.Writer) error {
-	_, err := fmt.Fprintf(writer, `*HQ,%s,V4,V1,%s#`, p.DeviceID, time.Now().Format(`20060102150405`))
+	_, err := fmt.Fprintf(writer, `*HQ,%s,V4,V1,%s#`, p.DeviceID, time.Now().In(time.UTC).Format(`20060102150405`))
 	return err
 }
 
