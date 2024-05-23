@@ -12,6 +12,7 @@ type Config struct {
 	md toml.MetaData `toml:"-"`
 
 	MQTT      ConfigMQTT
+	Status    ConfigStatus
 	Meta      map[string]ConfigMeta
 	Protocols map[string]toml.Primitive `toml:"protocol"`
 }
@@ -23,6 +24,11 @@ type ConfigMQTT struct {
 	PingTimeout time.Duration
 	Username    string
 	Password    string
+}
+
+type ConfigStatus struct {
+	Enabled bool
+	Listen  string
 }
 
 type ConfigMeta struct {
@@ -38,6 +44,10 @@ func LoadConfiguration(file string) (*Config, error) {
 			PingTimeout: time.Second,
 			Username:    os.Getenv("MQTT_USERNAME"),
 			Password:    os.Getenv("MQTT_PASSWORD"),
+		},
+		Status: ConfigStatus{
+			Enabled: false,
+			Listen:  "127.0.0.1:8080",
 		},
 	}
 

@@ -10,12 +10,15 @@ import (
 
 	"github.com/freman/gps2mqtt/mqtt"
 	"github.com/freman/gps2mqtt/protocol"
+	"github.com/freman/gps2mqtt/status"
 	"github.com/rs/zerolog"
 )
 
 type Listener struct {
 	log       zerolog.Logger
 	whitelist func(name string) bool
+
+	connections *status.Connections
 
 	Listen       string
 	WriteTimeout time.Duration
@@ -39,6 +42,7 @@ func (l *Listener) Run(chMsg chan mqtt.Identifier) error {
 
 		logger := l.log.With().IPAddr("remote", c.RemoteAddr().(*net.TCPAddr).IP).Logger()
 		logger.Info().Msg("Client connected.")
+		l.connections.Connected(c)
 
 		go l.HandleConnection(c, chMsg, logger)
 	}
@@ -47,6 +51,7 @@ func (l *Listener) Run(chMsg chan mqtt.Identifier) error {
 func (l *Listener) HandleConnection(c net.Conn, chMsg chan mqtt.Identifier, log zerolog.Logger) {
 	defer func() {
 		log.Info().Msg("Client disconnected.")
+		l.connections.Disconnected(c)
 
 		if err := c.Close(); err != nil {
 			log.Error().Err(err).Msg("Error while closing client connection.")
@@ -96,6 +101,8 @@ func (l *Listener) HandleConnection(c net.Conn, chMsg chan mqtt.Identifier, log 
 			return
 		}
 
+		l.connections.Packet(c, packet)
+
 		if packet.WantsResponse() {
 			if err = c.SetWriteDeadline(time.Now().Add(l.WriteTimeout)); err != nil {
 				log.Error().Err(err).Msg("Failed to set a write deadline.")
@@ -125,17 +132,18 @@ func (l *Listener) Setup(config protocol.Configerer) error {
 	l.WriteTimeout = time.Minute
 	l.ReadTimeout = time.Minute
 
-	if err := config.ProtocolConfiguration("h02", l); err != nil {
+	if err := config.ProtocolConfiguration(Name, l); err != nil {
 		return err
 	}
 
 	l.whitelist = config.Whitelist
+	l.connections = status.NewConnections(Name)
 
 	return nil
 }
 
 func init() {
-	protocol.Register("h02", func(logger zerolog.Logger) protocol.Interface {
+	protocol.Register(Name, func(logger zerolog.Logger) protocol.Interface {
 		return &Listener{
 			log: logger,
 		}

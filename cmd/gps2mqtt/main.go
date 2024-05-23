@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"net/http"
 	"os"
 
 	paho "github.com/eclipse/paho.mqtt.golang"
@@ -13,6 +14,7 @@ import (
 	"github.com/freman/gps2mqtt/homeassistant"
 	"github.com/freman/gps2mqtt/mqtt"
 	"github.com/freman/gps2mqtt/protocol"
+	"github.com/freman/gps2mqtt/status"
 
 	_ "github.com/freman/gps2mqtt/protocol/gt06"
 	_ "github.com/freman/gps2mqtt/protocol/h02"
@@ -68,6 +70,16 @@ func main() {
 		}
 
 		go p.Run(chMessage)
+	}
+
+	if cfg.Status.Enabled {
+		http.HandleFunc("/", status.HandleRequest)
+		go func() {
+			log.Info().Str("listen", cfg.Status.Listen).Msg("Starting status listener")
+			if err := http.ListenAndServe(cfg.Status.Listen, nil); err != nil {
+				log.Fatal().Err(err).Msg("Unable to start status listener")
+			}
+		}()
 	}
 
 	c.Publish("gps2mqtt/availability", 0, false, "online") // TODO error check

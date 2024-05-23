@@ -10,12 +10,15 @@ import (
 
 	"github.com/freman/gps2mqtt/mqtt"
 	"github.com/freman/gps2mqtt/protocol"
+	"github.com/freman/gps2mqtt/status"
 	"github.com/rs/zerolog"
 )
 
 type Listener struct {
 	log       zerolog.Logger
 	whitelist func(name string) bool
+
+	connections *status.Connections
 
 	Listen       string
 	WriteTimeout time.Duration
@@ -39,6 +42,7 @@ func (l *Listener) Run(chMsg chan mqtt.Identifier) error {
 
 		logger := l.log.With().IPAddr("remote", c.RemoteAddr().(*net.TCPAddr).IP).Logger()
 		logger.Info().Msg("Client connected.")
+		l.connections.Connected(c)
 
 		go l.HandleConnection(c, chMsg, logger)
 	}
@@ -47,6 +51,8 @@ func (l *Listener) Run(chMsg chan mqtt.Identifier) error {
 func (l *Listener) HandleConnection(c net.Conn, chMsg chan mqtt.Identifier, log zerolog.Logger) {
 	defer func() {
 		log.Info().Msg("Client disconnected.")
+
+		l.connections.Disconnected(c)
 
 		if err := c.Close(); err != nil {
 			log.Error().Err(err).Msg("Error while closing client connection.")
@@ -84,6 +90,8 @@ func (l *Listener) HandleConnection(c net.Conn, chMsg chan mqtt.Identifier, log 
 			return
 		}
 
+		l.connections.Packet(c, packet)
+
 		if !l.CheckWhitelist(packet) {
 			log.Warn().Str("device", packet.Device()).Msg("Rejecting unknown device.")
 			c.Close()
@@ -120,19 +128,20 @@ func (l *Listener) CheckWhitelist(p *Packet) bool {
 func (l *Listener) Setup(config protocol.Configerer) error {
 	l.Listen = ":5023"
 	l.WriteTimeout = time.Minute
-	l.ReadTimeout = time.Minute
+	l.ReadTimeout = 5 * time.Minute // Default status interval is 3 minutes
 
-	if err := config.ProtocolConfiguration("gt06", l); err != nil {
+	if err := config.ProtocolConfiguration(Name, l); err != nil {
 		return err
 	}
 
 	l.whitelist = config.Whitelist
+	l.connections = status.NewConnections(Name)
 
 	return nil
 }
 
 func init() {
-	protocol.Register("gt06", func(logger zerolog.Logger) protocol.Interface {
+	protocol.Register(Name, func(logger zerolog.Logger) protocol.Interface {
 		return &Listener{
 			log: logger,
 		}

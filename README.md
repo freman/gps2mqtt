@@ -10,6 +10,7 @@ I don't currently have the desire to implement the more advance features of prot
 
 * watch
 * h02
+* gt06
 
 ## Configuration
 
@@ -18,6 +19,10 @@ Configuration consists of blocks, mqtt, meta, and protocol.
 ### mqtt block
 
 Provides configuration for connecting to your MQTT server
+
+### status block
+
+Provides configuation for the http status endpoint
 
 ### meta blocks
 
@@ -40,6 +45,10 @@ Password = "auntie"
 Brokers = [
     "tcp://homassistant.local:1883"
 ]
+
+[status]
+Enabled = false
+Listen = "localhost:8080"
 
 [meta."SA*91678358119"]
 Name = "Motorbike Tracker"
