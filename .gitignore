@@ -1,3 +1,5 @@
 config.toml
 *.pcap
 log.json
+
+tracker-server.log

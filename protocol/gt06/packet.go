@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/freman/gps2mqtt/protocol"
+	"github.com/freman/gps2mqtt/checksum"
 )
 
 type Packet struct {
@@ -47,7 +47,7 @@ func (p *Packet) Respond(writer io.Writer) (err error) {
 	buf.Write(stopMessage)
 
 	b := buf.Bytes()
-	binary.BigEndian.PutUint16(b[6:8], protocol.CRC16_ITU(b[1:6]))
+	binary.BigEndian.PutUint16(b[6:8], checksum.CRC16_ITU(b[1:6]))
 
 	_, err = writer.Write(b)
 

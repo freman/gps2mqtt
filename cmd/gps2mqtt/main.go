@@ -18,6 +18,7 @@ import (
 
 	_ "github.com/freman/gps2mqtt/protocol/gt06"
 	_ "github.com/freman/gps2mqtt/protocol/h02"
+	_ "github.com/freman/gps2mqtt/protocol/huabao"
 	_ "github.com/freman/gps2mqtt/protocol/watch"
 )
 

@@ -1,4 +1,4 @@
-package gt06
+package huabao
 
 import (
 	"bufio"
@@ -51,7 +51,6 @@ func (l *Listener) Run(chMsg chan mqtt.Identifier) error {
 func (l *Listener) HandleConnection(c net.Conn, chMsg chan mqtt.Identifier, log zerolog.Logger) {
 	defer func() {
 		log.Info().Msg("Client disconnected.")
-
 		l.connections.Disconnected(c)
 
 		if err := c.Close(); err != nil {
@@ -80,17 +79,10 @@ func (l *Listener) HandleConnection(c net.Conn, chMsg chan mqtt.Identifier, log 
 			return
 		}
 
-		if packet == nil {
-			log.Warn().Msg("Unable to parse packet, but no error returned.")
-			continue
-		}
-
 		if err := c.SetReadDeadline(time.Time{}); err != nil {
 			log.Error().Err(err).Msg("Failed to clear a read deadline.")
 			return
 		}
-
-		l.connections.Packet(c, packet)
 
 		if !l.CheckWhitelist(packet) {
 			log.Warn().Str("device", packet.Device()).Msg("Rejecting unknown device.")
@@ -99,8 +91,10 @@ func (l *Listener) HandleConnection(c net.Conn, chMsg chan mqtt.Identifier, log 
 			return
 		}
 
-		if packet.WantsResponse() {
-			if err = c.SetWriteDeadline(time.Now().Add(l.WriteTimeout)); err != nil {
+		l.connections.Packet(c, packet)
+
+		if packet.WantResponse() {
+			if err := c.SetWriteDeadline(time.Now().Add(l.WriteTimeout)); err != nil {
 				log.Error().Err(err).Msg("Failed to set a write deadline.")
 				return
 			}
@@ -109,7 +103,7 @@ func (l *Listener) HandleConnection(c net.Conn, chMsg chan mqtt.Identifier, log 
 				log.Error().Err(err).Msg("Failed to finish handshake.")
 			}
 
-			if err = c.SetWriteDeadline(time.Time{}); err != nil {
+			if err := c.SetWriteDeadline(time.Time{}); err != nil {
 				log.Error().Err(err).Msg("Failed to clear a write deadline.")
 				return
 			}
@@ -124,9 +118,9 @@ func (l *Listener) CheckWhitelist(p *Packet) bool {
 }
 
 func (l *Listener) Setup(config protocol.Configerer) error {
-	l.Listen = ":5023"
-	l.WriteTimeout = time.Minute
-	l.ReadTimeout = 5 * time.Minute // Default status interval is 3 minutes
+	l.Listen = ":5015"
+	l.WriteTimeout = time.Second
+	l.ReadTimeout = time.Minute
 
 	if err := config.ProtocolConfiguration(Name, l); err != nil {
 		return err

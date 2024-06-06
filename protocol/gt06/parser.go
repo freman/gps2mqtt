@@ -8,7 +8,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/freman/gps2mqtt/protocol"
+	"github.com/freman/gps2mqtt/checksum"
 	"github.com/rs/zerolog"
 )
 
@@ -135,7 +135,7 @@ func (p *Parser) verifyCRC(msg []byte) error {
 	l := len(msg)
 	expected := binary.BigEndian.Uint16(msg[l-2:])
 
-	crc := protocol.CRC16_ITU(msg[:l-2])
+	crc := checksum.CRC16_ITU(msg[:l-2])
 
 	if expected != crc {
 		return errors.New("invalid crc")
