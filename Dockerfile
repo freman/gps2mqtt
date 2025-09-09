@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM golang:1.20-alpine AS build
+FROM --platform=$BUILDPLATFORM golang:1.25.1-alpine AS build
 WORKDIR /src
 COPY . .
 RUN go mod download
