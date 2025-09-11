@@ -62,5 +62,5 @@ Icon = "mdi:robot-mower"
 Listen=":5093"
 
 [protocol.h02]
-Listen=":5093"
+Listen=":5013"
 ```
