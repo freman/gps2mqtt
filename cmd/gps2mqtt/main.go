@@ -53,7 +53,7 @@ func main() {
 		opts.AddBroker(broker)
 	}
 
-	opts.SetWill("gps2mqtt/availability", "offline", 0, false)
+	opts.SetWill("gps2mqtt/availability", "offline", 0, true)
 
 	c := paho.NewClient(opts)
 	if token := c.Connect(); token.Wait() && token.Error() != nil {
@@ -83,7 +83,7 @@ func main() {
 		}()
 	}
 
-	c.Publish("gps2mqtt/availability", 0, false, "online") // TODO error check
+	c.Publish("gps2mqtt/availability", 0, true, "online") // TODO error check
 
 	seen := make(map[string]struct{})
 
