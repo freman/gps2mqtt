@@ -89,7 +89,7 @@ func main() {
 
 	for msg := range chMessage {
 		mqttID := msg.MQTTID()
-		topicPrefix := "gps2mqtt/device/" + mqttID
+		topic := "gps2mqtt/device/" + mqttID + "/attributes"
 		deviceID := msg.Device()
 
 		if _, has := seen[deviceID]; !has {
@@ -100,9 +100,8 @@ func main() {
 				hc := homeassistant.AutoConfiguration{
 					Name:                meta.Name,
 					Icon:                meta.Icon,
-					StateTopic:          topicPrefix,
 					AvailabilityTopic:   "gps2mqtt/availability",
-					JSONAttributesTopic: topicPrefix + "/attributes",
+					JSONAttributesTopic: topic,
 					SourceType:          "gps",
 					UniqueID:            "gps2mqtt_" + deviceID,
 				}
@@ -125,7 +124,6 @@ func main() {
 				log.Fatal().Err(err).Msg("Failed to marshal update message.")
 			}
 
-			topic := topicPrefix + "/attributes"
 			log.Trace().Str("topic", topic).RawJSON("message", b).Msg("Publishing location to MQTT")
 			c.Publish(topic, 0, false, b) // TODO error check
 		}
